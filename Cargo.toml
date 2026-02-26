@@ -1,6 +1,6 @@
 [package]
 name = "html-safe-md"
-version = "0.1.0"
+version = "0.0.1"
 edition = "2024"
 license = "MIT OR Apache-2.0"
 description = "Convert untrusted HTML to safe markdown. No remote fetches, no scripts, no tracking pixels."
