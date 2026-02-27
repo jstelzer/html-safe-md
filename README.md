@@ -129,7 +129,7 @@ View this email in your browser
 
 ## Use Cases
 
-- **Email clients** — [nevermail](https://github.com/jstelzer/nevermail) (the origin of this crate)
+- **Email clients** — [neverlight-mail](https://github.com/jstelzer/neverlight-mail) (the origin of this crate)
 - **App stores** — safely render app descriptions from upstream sources
 - **RSS/feed readers** — untrusted HTML from feeds, same threat model
 - **CMS/comment systems** — anywhere user-submitted HTML needs safe display

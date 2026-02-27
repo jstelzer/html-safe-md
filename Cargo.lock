@@ -965,3 +965,7 @@ dependencies = [
  "quote",
  "syn",
 ]
+
+[[patch.unused]]
+name = "neverlight-mail-core"
+version = "0.0.2"
