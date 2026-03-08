@@ -128,7 +128,7 @@ dependencies = [
 
 [[package]]
 name = "html-safe-md"
-version = "0.0.1"
+version = "0.0.2"
 dependencies = [
  "ammonia",
  "html2md",
@@ -968,4 +968,4 @@ dependencies = [
 
 [[patch.unused]]
 name = "neverlight-mail-core"
-version = "0.0.2"
+version = "0.1.0"

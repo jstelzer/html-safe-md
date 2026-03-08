@@ -8,7 +8,7 @@
 //! ## Pipeline
 //!
 //! ```text
-//! untrusted HTML → ammonia (allowlist sanitizer) → html2md (markdown conversion) → safe string
+//! untrusted HTML → prep_block_breaks → ammonia (allowlist) → html2md → post_process → safe string
 //! ```
 //!
 //! ## Quick Start
@@ -26,13 +26,20 @@
 //! assert!(md.contains("following up"));
 //! ```
 
+mod pipeline;
+
 use std::collections::HashSet;
+
+use pipeline::{clean_html, post_process_md, post_process_plain, prep_block_breaks};
 
 /// Max HTML input size before truncation (512 KB).
 const DEFAULT_MAX_HTML_BYTES: usize = 512 * 1024;
 
 /// Max markdown output length in chars.
 const DEFAULT_MAX_MD_CHARS: usize = 200_000;
+
+/// URLs longer than this in markdown links get dropped (link text kept).
+const MAX_URL_LEN: usize = 200;
 
 /// Tags that produce meaningful markdown. Everything else is stripped.
 /// Text content inside stripped tags is preserved — only the tags are removed.
@@ -89,8 +96,10 @@ pub fn sanitize_html(html: &str) -> String {
 /// Sanitize untrusted HTML and convert to markdown with a custom config.
 pub fn sanitize_html_with(html: &str, config: &Config) -> String {
     let html = &html[..html.len().min(config.max_html_bytes)];
-    let clean = clean_html(html, config);
-    let mut md = html2md::parse_html(&clean);
+    let prepped = prep_block_breaks(html);
+    let clean = clean_html(&prepped, config);
+    let md = html2md::parse_html(&clean);
+    let mut md = post_process_md(&md);
     md.truncate(config.max_md_chars);
     md
 }
@@ -130,19 +139,16 @@ pub fn render_email_with(
     text_html: Option<&str>,
     config: &Config,
 ) -> String {
-    // Prefer plain text when it looks like real content
     if let Some(plain) = text_plain {
         if !is_junk_plain(plain) {
             return plain.to_string();
         }
     }
 
-    // Fall back to sanitized HTML → markdown
     if let Some(html) = text_html {
         return sanitize_html_with(html, config);
     }
 
-    // Plain was junk but there's no HTML — show it anyway
     if let Some(plain) = text_plain {
         return plain.to_string();
     }
@@ -152,14 +158,19 @@ pub fn render_email_with(
 
 /// Render an email body as plain text (no markdown formatting).
 ///
-/// Prefers `text_plain` when available; falls back to `html2text` conversion.
+/// Prefers `text_plain` when available; falls back to sanitized HTML → text.
+/// The HTML is cleaned through ammonia first (same as the markdown path) to
+/// strip layout tables, styles, and scripts before converting to text.
 pub fn render_email_plain(text_plain: Option<&str>, text_html: Option<&str>) -> String {
     if let Some(plain) = text_plain {
         return plain.to_string();
     }
 
     if let Some(html) = text_html {
-        return html2text::from_read(html.as_bytes(), 80).unwrap_or_default();
+        let prepped = prep_block_breaks(html);
+        let clean = clean_html(&prepped, &Config::default());
+        let text = html2text::from_read(clean.as_bytes(), 80).unwrap_or_default();
+        return post_process_plain(&text);
     }
 
     "[No displayable content]".to_string()
@@ -175,18 +186,6 @@ pub fn render_email_plain(text_plain: Option<&str>, text_html: Option<&str>) -> 
 pub fn is_junk_plain(s: &str) -> bool {
     let t = s.trim();
     t.is_empty() || t.len() < 40 || t.lines().count() <= 2
-}
-
-/// Strip HTML down to semantic content using an allowlist.
-fn clean_html(html: &str, config: &Config) -> String {
-    let mut tags: HashSet<&str> = ALLOWED_TAGS.iter().copied().collect();
-
-    // Extend with any user-configured extra tags
-    // (we need to hold the references, so collect owned strings first)
-    let extras: Vec<&str> = config.extra_tags.iter().map(|s| s.as_str()).collect();
-    tags.extend(extras);
-
-    ammonia::Builder::new().tags(tags).clean(html).to_string()
 }
 
 #[cfg(test)]
@@ -296,11 +295,8 @@ mod tests {
     fn custom_config_extra_tags() {
         let mut config = Config::default();
         config.extra_tags.insert("img".to_string());
-        // With img allowed, it should survive (ammonia will still strip src if not in allowed attrs,
-        // but the tag itself won't be stripped)
         let html = r#"<p>Text</p><img alt="photo">"#;
         let result = sanitize_html_with(html, &config);
-        // At minimum the tag shouldn't be silently dropped
         assert!(result.contains("Text"));
     }
 
