@@ -1,10 +1,10 @@
 [package]
-name = "html-safe-md"
+name = "neverlight-mail-html-safe-md"
 version = "0.0.2"
 edition = "2024"
 license = "MIT OR Apache-2.0"
 description = "Convert untrusted HTML to safe markdown. No remote fetches, no scripts, no tracking pixels."
-repository = "https://github.com/jstelzer/html-safe-md"
+repository = "https://github.com/jstelzer/neverlight-mail-html-safe-md"
 keywords = ["html", "markdown", "sanitize", "email", "privacy"]
 categories = ["text-processing", "web-programming"]
 rust-version = "1.85"
